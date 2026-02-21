@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pugh Chart</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 1400px; margin: 0 auto; padding: 1.5rem; background: #f8f9fa; color: #222; }
+    h1 { color: #1a1a2e; margin-bottom: 0.25rem; }
+    .subtitle { color: #555; margin-bottom: 1.5rem; font-size: 0.95rem; }
+
+    section { background: #fff; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    section h2 { margin-top: 0; font-size: 1.1rem; color: #333; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
+    .tabs button { padding: 0.5rem 1rem; border: 1px solid #ddd; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.95rem; }
+    .tabs button.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Table */
+    .chart-scroll { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
+    th, td { border: 1px solid #ddd; padding: 0.45rem 0.6rem; text-align: center; vertical-align: middle; }
+    th { background: #1a1a2e; color: #fff; font-weight: 600; white-space: nowrap; }
+    th.project-col { text-align: left; min-width: 150px; }
+    th.desc-col { text-align: left; min-width: 180px; font-weight: 500; }
+    td.project-name { text-align: left; font-weight: 600; background: #f0f0f5; white-space: nowrap; }
+    td.project-desc { text-align: left; font-size: 0.85rem; color: #555; background: #fafafa; }
+    td.project-desc { max-width: 280px; }
+
+    /* Weight row */
+    tr.weight-row td { background: #eef; }
+    tr.weight-row td input[type="number"] { width: 60px; text-align: center; border: 1px solid #bbb; border-radius: 3px; padding: 0.25rem; font-size: 0.85rem; }
+    .weight-sum { font-size: 0.85rem; margin-top: 0.25rem; }
+    .weight-sum.ok { color: #0f5132; }
+    .weight-sum.bad { color: #842029; font-weight: 600; }
+    tr.weight-row th { background: #2d2d50; }
+
+    /* Score selects */
+    td select { width: 100%; padding: 0.3rem; font-size: 0.9rem; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; }
+
+    /* Buttons and inputs */
+    .add-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.75rem; }
+    .add-row input[type="text"] { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
+    .add-row .inp-name { width: 160px; }
+    .add-row .inp-desc { width: 250px; }
+    .add-row button,
+    .btn-add { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; background: #1a1a2e; color: #fff; }
+    .btn-add:hover { background: #2d2d44; }
+    .btn-save { background: #0d6efd; color: #fff; padding: 0.6rem 1.25rem; font-size: 1rem; margin-top: 0.5rem; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .btn-save:hover { background: #0b5ed7; }
+    .weight-status { font-size: 0.8rem; color: #888; margin-left: 0.25rem; transition: opacity 0.3s; }
+    .name-row { margin-bottom: 0.75rem; }
+    .name-row label { margin-right: 0.5rem; font-weight: 500; }
+    .name-row input { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
+
+    /* Aggregate */
+    .aggregate-table th { background: #2d5016; }
+    .aggregate-table td { text-align: left; }
+    .aggregate-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .aggregate-table .desc-cell { font-size: 0.85rem; color: #555; max-width: 260px; }
+
+    .msg { padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; display: none; }
+    .msg.success { background: #d1e7dd; color: #0f5132; display: block; }
+    .msg.error { background: #f8d7da; color: #842029; display: block; }
+  </style>
+</head>
+<body>
+  <h1>Pugh Chart</h1>
+  <p class="subtitle">Rate each project against each criterion (+1 better, 0 same, &minus;1 worse). Weights multiply each criterion's scores in the aggregate.</p>
+
+  <div class="tabs">
+    <button type="button" class="tab-btn active" data-tab="fill">Fill out chart</button>
+    <button type="button" class="tab-btn" data-tab="aggregate">View aggregate</button>
+  </div>
+
+  <!-- ==================== FILL OUT TAB ==================== -->
+  <div id="panel-fill" class="tab-panel active">
+    <section>
+      <h2>Add a project</h2>
+      <div class="add-row">
+        <input type="text" id="newProject" class="inp-name" placeholder="Project name">
+        <input type="text" id="newProjectDesc" class="inp-desc" placeholder="Short description (optional)">
+        <button type="button" class="btn-add" id="btnAddProject">Add project</button>
+      </div>
+      <div id="addMsg" class="msg"></div>
+    </section>
+
+    <section>
+      <h2>Your scores</h2>
+      <div class="name-row">
+        <label for="userName">Your name:</label>
+        <input type="text" id="userName" placeholder="e.g. Alex">
+      </div>
+      <div class="chart-scroll" id="tableWrap"></div>
+      <div style="margin-top:0.5rem;">
+        <button type="button" class="btn-save" id="btnSave">Save my scores</button>
+      </div>
+      <div id="saveMsg" class="msg"></div>
+    </section>
+  </div>
+
+  <!-- ==================== AGGREGATE TAB ==================== -->
+  <div id="panel-aggregate" class="tab-panel">
+    <section>
+      <h2>Aggregated ranking</h2>
+      <p>Weighted scores = each person's +1/0/&minus;1 multiplied by the criterion weight, then summed across all members.</p>
+      <div id="aggregateWrap"></div>
+    </section>
+  </div>
+
+  <script>
+    let structure = { criteria: [], weights: [], projects: [] };
+    let scores = {};   // projectIndex -> { criterionIndex: +1|0|-1 }
+    let localWeights;  // mirrors structure.weights until saved
+
+    /* ---- even weight distribution ---- */
+    function evenWeights(n) {
+      if (n === 0) return [];
+      const base = Math.floor(100 / n);
+      const remainder = 100 - base * n;
+      return Array.from({ length: n }, (_, i) => (base + (i < remainder ? 1 : 0)) / 100);
+    }
+
+    /* ---- helpers ---- */
+    function showMsg(elId, text, isError) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'msg ' + (isError ? 'error' : 'success');
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch('/api' + path, options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+
+    /* ---- load ---- */
+    async function loadStructure() {
+      structure = await api('/structure');
+      localWeights = [...structure.weights];
+      initScores();
+      renderTable();
+    }
+
+    function initScores() {
+      structure.projects.forEach((_, pIdx) => {
+        if (!scores[pIdx]) scores[pIdx] = {};
+        structure.criteria.forEach((_, cIdx) => {
+          if (scores[pIdx][cIdx] === undefined) scores[pIdx][cIdx] = 0;
+        });
+      });
+    }
+
+    /* ---- scores ---- */
+    function getScore(pIdx, cIdx) {
+      const p = scores[pIdx];
+      return (p && p[cIdx] !== undefined) ? p[cIdx] : 0;
+    }
+    function setScore(pIdx, cIdx, value) {
+      if (!scores[pIdx]) scores[pIdx] = {};
+      scores[pIdx][cIdx] = value;
+    }
+
+    /* ---- render main chart ---- */
+    function renderTable() {
+      const wrap = document.getElementById('tableWrap');
+      const { criteria, projects } = structure;
+      if (!criteria.length || !projects.length) {
+        wrap.innerHTML = '<p>Add at least one criterion and one project below to get started.</p>';
+        return;
+      }
+
+      let html = '<table>';
+
+      // Header: blank | Description | criteria...
+      html += '<thead><tr>';
+      html += '<th class="project-col">Project</th>';
+      html += '<th class="desc-col">Description</th>';
+      criteria.forEach(c => { html += '<th>' + escapeHtml(c) + '</th>'; });
+      html += '</tr></thead>';
+
+      html += '<tbody>';
+
+      // Weight row
+      html += '<tr class="weight-row"><th colspan="2" style="text-align:right;">Weight</th>';
+      criteria.forEach((_, cIdx) => {
+        const w = localWeights[cIdx] !== undefined ? localWeights[cIdx] : 0;
+        html += '<td><input type="number" min="0" max="1" step="0.01" value="' + w + '" data-widx="' + cIdx + '"></td>';
+      });
+      html += '</tr>';
+
+      // Project rows
+      projects.forEach((proj, pIdx) => {
+        html += '<tr>';
+        html += '<td class="project-name">' + escapeHtml(proj.name) + '</td>';
+        html += '<td class="project-desc">' + escapeHtml(proj.description || '') + '</td>';
+        criteria.forEach((_, cIdx) => {
+          const val = getScore(pIdx, cIdx);
+          html += '<td><select data-p="' + pIdx + '" data-c="' + cIdx + '">' +
+            '<option value="-1"' + (val === -1 ? ' selected' : '') + '>\u22121</option>' +
+            '<option value="0"'  + (val ===  0 ? ' selected' : '') + '>0</option>' +
+            '<option value="1"'  + (val ===  1 ? ' selected' : '') + '>+1</option>' +
+            '</select></td>';
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      html += '<div class="weight-sum" id="weightSum"></div>';
+      wrap.innerHTML = html;
+
+      // Bind score selects
+      wrap.querySelectorAll('select').forEach(sel => {
+        sel.addEventListener('change', () => setScore(+sel.dataset.p, +sel.dataset.c, +sel.value));
+      });
+
+      // Bind weight inputs with debounced auto-save
+      wrap.querySelectorAll('input[data-widx]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          localWeights[+inp.dataset.widx] = parseFloat(inp.value) || 0;
+          updateWeightSum();
+          scheduleWeightSave();
+        });
+      });
+
+      updateWeightSum();
+    }
+
+    function getWeightSum() {
+      return localWeights.reduce((s, w) => s + (parseFloat(w) || 0), 0);
+    }
+
+    function updateWeightSum() {
+      const el = document.getElementById('weightSum');
+      if (!el) return;
+      const sum = getWeightSum();
+      const rounded = Math.round(sum * 100) / 100;
+      const ok = Math.abs(rounded - 1) < 0.001;
+      const statusEl = document.getElementById('weightStatus');
+      const statusText = statusEl ? statusEl.textContent : '';
+      el.innerHTML = 'Weight total: ' + rounded.toFixed(2) +
+        (ok ? '' : ' <span style="color:#842029;font-weight:600;">(must equal 1.00)</span>') +
+        ' <span class="weight-status" id="weightStatus">' + statusText + '</span>';
+      el.className = 'weight-sum ' + (ok ? 'ok' : 'bad');
+    }
+
+    let weightSaveTimer = null;
+    function scheduleWeightSave() {
+      clearTimeout(weightSaveTimer);
+      const statusEl = document.getElementById('weightStatus');
+      if (statusEl) statusEl.textContent = '';
+      weightSaveTimer = setTimeout(autoSaveWeights, 800);
+    }
+
+    async function autoSaveWeights() {
+      const sum = Math.round(getWeightSum() * 100) / 100;
+      const statusEl = document.getElementById('weightStatus');
+      if (Math.abs(sum - 1) >= 0.001) {
+        if (statusEl) { statusEl.textContent = ''; }
+        return;
+      }
+      try {
+        structure = await api('/weights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weights: localWeights })
+        });
+        localWeights = [...structure.weights];
+        if (statusEl) { statusEl.textContent = 'saved'; statusEl.style.color = '#0f5132'; }
+      } catch (e) {
+        if (statusEl) { statusEl.textContent = 'save failed'; statusEl.style.color = '#842029'; }
+      }
+    }
+
+    /* ---- save button ---- */
+    document.getElementById('btnSave').addEventListener('click', async () => {
+      const userName = document.getElementById('userName').value.trim();
+      if (!userName) { showMsg('saveMsg', 'Please enter your name first.', true); return; }
+
+      const weightSum = Math.round(getWeightSum() * 100) / 100;
+      const weightsOk = Math.abs(weightSum - 1) < 0.001;
+
+      if (!weightsOk) {
+        showMsg('saveMsg', 'Weights must sum to 1.00 before saving (currently ' + weightSum.toFixed(2) + '). Fix the weights, then try again.', true);
+        return;
+      }
+
+      try {
+        // Save weights first
+        structure = await api('/weights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weights: localWeights })
+        });
+        localWeights = [...structure.weights];
+
+        // Then save scores
+        await api('/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userName, scores })
+        });
+
+        showMsg('saveMsg', 'Scores and weights saved for ' + userName + '!', false);
+
+        // Reset form for next person
+        document.getElementById('userName').value = '';
+        scores = {};
+        initScores();
+        document.getElementById('newProject').value = '';
+        document.getElementById('newProjectDesc').value = '';
+        // Reset weights to even split
+        localWeights = evenWeights(structure.criteria.length);
+        renderTable();
+      } catch (e) {
+        showMsg('saveMsg', e.message, true);
+      }
+    });
+
+    /* ---- add project ---- */
+    document.getElementById('btnAddProject').addEventListener('click', async () => {
+      const name = document.getElementById('newProject').value.trim();
+      const description = document.getElementById('newProjectDesc').value.trim();
+      if (!name) { showMsg('addMsg', 'Enter a project name.', true); return; }
+      try {
+        structure = await api('/structure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'project', name, description })
+        });
+        localWeights = [...structure.weights];
+        document.getElementById('newProject').value = '';
+        document.getElementById('newProjectDesc').value = '';
+        showMsg('addMsg', 'Project added!', false);
+        renderTable();
+      } catch (e) {
+        showMsg('addMsg', e.message, true);
+      }
+    });
+
+    /* ---- aggregate tab ---- */
+    async function loadAggregate() {
+      const wrap = document.getElementById('aggregateWrap');
+      try {
+        const data = await api('/aggregate');
+        const { ranking, submissionsCount, structure: s } = data;
+        if (!ranking || !ranking.length) {
+          wrap.innerHTML = '<p>No submissions yet. Have everyone fill out and save their scores first.</p>';
+          return;
+        }
+        const criteria = s.criteria;
+        const weights = s.weights;
+
+        let html = '<p><strong>' + submissionsCount + '</strong> submission(s). Values are the average score across all members.</p>';
+        html += '<div class="chart-scroll"><table class="aggregate-table"><thead><tr>';
+        html += '<th>Rank</th><th>Project</th><th>Description</th>';
+        criteria.forEach((c, i) => {
+          html += '<th>' + escapeHtml(c) + '<br><span style="font-weight:400;font-size:0.75rem;">w=' + (weights[i] ?? 0) + '</span></th>';
+        });
+        html += '<th style="background:#1a4d1a;">Weighted<br>Score</th>';
+        html += '<th>Ratings</th>';
+        html += '</tr></thead><tbody>';
+
+        ranking.forEach(r => {
+          html += '<tr>';
+          html += '<td class="num">' + r.rank + '</td>';
+          html += '<td>' + escapeHtml(r.project) + '</td>';
+          html += '<td class="desc-cell">' + escapeHtml(r.description) + '</td>';
+          r.criterionAvgs.forEach(avg => {
+            const rounded = Math.round(avg * 100) / 100;
+            let color = '#555';
+            if (rounded > 0) color = '#0f5132';
+            else if (rounded < 0) color = '#842029';
+            html += '<td class="num" style="color:' + color + ';">' + rounded.toFixed(2) + '</td>';
+          });
+          html += '<td class="num" style="font-weight:700;">' + r.weightedScore + '</td>';
+          html += '<td class="num">' + r.raters + '</td>';
+          html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        wrap.innerHTML = html;
+      } catch (e) {
+        wrap.innerHTML = '<p class="msg error">' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    /* ---- tab switching ---- */
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'aggregate') loadAggregate();
+      });
+    });
+
+    loadStructure();
+  </script>
+</body>
+</html>

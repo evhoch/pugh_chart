@@ -1,0 +1,13 @@
+{
+  "name": "pugh-chart",
+  "version": "1.0.0",
+  "description": "Lightweight Pugh chart for group evaluation and aggregation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "tunnel": "npx ngrok http 3000"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
