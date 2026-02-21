@@ -21,23 +21,24 @@
     .tab-panel.active { display: block; }
 
     /* Table */
-    .chart-scroll { overflow-x: auto; }
-    table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
+    .chart-scroll { overflow: auto; max-height: 70vh; }
+    table { border-collapse: separate; border-spacing: 0; width: max-content; margin: 0.5rem 0; }
     th, td { border: 1px solid #ddd; padding: 0.45rem 0.6rem; text-align: center; vertical-align: middle; }
-    th { background: #1a1a2e; color: #fff; font-weight: 600; white-space: nowrap; }
-    th.project-col { text-align: left; min-width: 150px; }
-    th.desc-col { text-align: left; min-width: 180px; font-weight: 500; }
-    td.project-name { text-align: left; font-weight: 600; background: #f0f0f5; white-space: nowrap; }
-    td.project-desc { text-align: left; font-size: 0.85rem; color: #555; background: #fafafa; }
-    td.project-desc { max-width: 280px; }
+    th { background: #1a1a2e; color: #fff; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+
+    /* Frozen first two columns */
+    th.project-col { text-align: left; width: 240px; min-width: 240px; max-width: 240px; position: sticky; left: 0; top: 0; z-index: 4; background: #1a1a2e; font-size: 0.85rem; }
+    th.desc-col { text-align: left; width: 220px; min-width: 220px; max-width: 220px; position: sticky; left: 240px; top: 0; z-index: 4; background: #1a1a2e; font-weight: 500; font-size: 0.85rem; }
+    td.project-name { text-align: left; font-weight: 600; background: #f0f0f5; white-space: normal; width: 240px; min-width: 240px; max-width: 240px; position: sticky; left: 0; z-index: 1; font-size: 0.8rem; line-height: 1.2; }
+    td.project-desc { text-align: left; font-size: 0.78rem; color: #555; background: #fafafa; width: 220px; min-width: 220px; max-width: 220px; position: sticky; left: 240px; z-index: 1; line-height: 1.2; }
 
     /* Weight row */
-    tr.weight-row td { background: #eef; }
+    tr.weight-row td { background: #eef; position: sticky; top: 29px; z-index: 2; }
     tr.weight-row td input[type="number"] { width: 60px; text-align: center; border: 1px solid #bbb; border-radius: 3px; padding: 0.25rem; font-size: 0.85rem; }
     .weight-sum { font-size: 0.85rem; margin-top: 0.25rem; }
     .weight-sum.ok { color: #0f5132; }
     .weight-sum.bad { color: #842029; font-weight: 600; }
-    tr.weight-row th { background: #2d2d50; }
+    tr.weight-row th { background: #2d2d50; position: sticky; left: 0; top: 29px; z-index: 4; width: 460px; min-width: 460px; }
 
     /* Score selects */
     td select { width: 100%; padding: 0.3rem; font-size: 0.9rem; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; }
@@ -62,6 +63,12 @@
     .aggregate-table td { text-align: left; }
     .aggregate-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
     .aggregate-table .desc-cell { font-size: 0.85rem; color: #555; max-width: 260px; }
+    .aggregate-table .sticky-rank { position: sticky; left: 0; z-index: 1; background: #fff; }
+    .aggregate-table .sticky-name { position: sticky; left: 40px; z-index: 1; background: #fff; }
+    .aggregate-table .sticky-desc { position: sticky; left: 220px; z-index: 1; background: #fff; }
+    .aggregate-table th.sticky-rank { background: #2d5016; z-index: 3; }
+    .aggregate-table th.sticky-name { background: #2d5016; z-index: 3; }
+    .aggregate-table th.sticky-desc { background: #2d5016; z-index: 3; }
 
     .msg { padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; display: none; }
     .msg.success { background: #d1e7dd; color: #0f5132; display: block; }
@@ -365,7 +372,7 @@
 
         let html = '<p><strong>' + submissionsCount + '</strong> submission(s). Values are the average score across all members.</p>';
         html += '<div class="chart-scroll"><table class="aggregate-table"><thead><tr>';
-        html += '<th>Rank</th><th>Project</th><th>Description</th>';
+        html += '<th class="sticky-rank">Rank</th><th class="sticky-name">Project</th><th class="sticky-desc">Description</th>';
         criteria.forEach((c, i) => {
           html += '<th>' + escapeHtml(c) + '<br><span style="font-weight:400;font-size:0.75rem;">w=' + (weights[i] ?? 0) + '</span></th>';
         });
@@ -375,9 +382,9 @@
 
         ranking.forEach(r => {
           html += '<tr>';
-          html += '<td class="num">' + r.rank + '</td>';
-          html += '<td>' + escapeHtml(r.project) + '</td>';
-          html += '<td class="desc-cell">' + escapeHtml(r.description) + '</td>';
+          html += '<td class="num sticky-rank">' + r.rank + '</td>';
+          html += '<td class="sticky-name">' + escapeHtml(r.project) + '</td>';
+          html += '<td class="desc-cell sticky-desc">' + escapeHtml(r.description) + '</td>';
           r.criterionAvgs.forEach(avg => {
             const rounded = Math.round(avg * 100) / 100;
             let color = '#555';
